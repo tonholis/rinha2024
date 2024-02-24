@@ -1,0 +1,27 @@
+@host = http://localhost:9999
+
+### Credit
+POST {{host}}/clientes/1/transacoes
+Content-Type: application/json
+
+{
+  "valor": 10000,
+  "tipo": "c",
+  "descricao": "credito"
+}
+
+### Debito
+POST {{host}}/clientes/1/transacoes
+Content-Type: application/json
+
+{
+  "valor": 10000,
+  "tipo": "d",
+  "descricao": "debito"
+}
+
+###
+GET {{host}}/clientes/1/extrato
+
+###
+POST {{host}}/clear

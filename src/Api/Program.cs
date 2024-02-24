@@ -5,37 +5,26 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ApiDb>(options =>
-  options.UseNpgsql(builder.Configuration.GetConnectionString("ApiDb")));
-
+  options.UseNpgsql(builder.Configuration.GetConnectionString("DB")));
 
 builder.Services.AddScoped<IValidator<Transaction>, TransactionValidator>();
 
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-	app.UseSwagger();
-	app.UseSwaggerUI();
-}
 
 app.MapPost("/clientes/{id}/transacoes", async (int id, 
 	[FromBody] Transaction transaction,
 	IValidator<Transaction> validator,
 	ApiDb db) =>
 {
-	var result = await validator.ValidateAsync(transaction);
-	if (!result.IsValid)
-		return Results.BadRequest(result.Errors);
-
 	var customer = await db.Customers.FindAsync(id);
 	if (customer is null)
 		return Results.NotFound(new ErrorDto("Cliente nao encontrado"));
+
+	var validationResult = await validator.ValidateAsync(transaction);
+	if (!validationResult.IsValid)
+		return Results.BadRequest(validationResult.Errors);
 
 	try
 	{
@@ -45,18 +34,17 @@ app.MapPost("/clientes/{id}/transacoes", async (int id,
 			customer.Credit(transaction.Amount);
 
 		transaction.CustomerId = id;
+		transaction.CreatedAt = DateTime.UtcNow;
 		db.Transactions.Add(transaction);
 		await db.SaveChangesAsync();
 
-		return Results.Ok(customer);
+		return Results.Ok(new { limite = customer.Limit, saldo = customer.Balance });
 	}
 	catch (InvalidOperationException)
 	{
 		return Results.UnprocessableEntity(new ErrorDto("Saldo insuficiente"));
 	}
-})
-.WithName("Transacoes")
-.WithOpenApi();
+});
 
 app.MapGet("/clientes/{id}/extrato", async (int id,	ApiDb db) =>
 {
@@ -65,26 +53,19 @@ app.MapGet("/clientes/{id}/extrato", async (int id,	ApiDb db) =>
 		return Results.NotFound(new ErrorDto("Cliente nao encontrado"));
 
 	var transactions = await db.Transactions.Where(t => t.CustomerId == id).ToArrayAsync();
-	return Results.Ok(new ExtratoDto(customer, transactions));
-	
-})
-.WithName("Extrato")
-.WithOpenApi();
+	return Results.Ok(new
+	{
+		saldo = new { total = customer.Balance, limite = customer.Limit, data_extrato = DateTime.UtcNow },
+		ultimas_transacoes = transactions
+	});	
+});
+
+app.MapPost("/clear", async (ApiDb db) =>
+{
+	await db.Database.ExecuteSqlRawAsync("UPDATE customers SET balance = 0;TRUNCATE TABLE transactions;");
+	return Results.Ok(new { message = "done"});
+});
 
 app.Run();
 
-
 public record ErrorDto(string Message);
-
-public record BalanceDto(int Total, DateTime DataExtrato, int Limite);
-public class ExtratoDto
-{
-    public ExtratoDto(Customer customer, Transaction[] transactions)
-    {
-		Saldo = new BalanceDto(customer.Balance, DateTime.UtcNow, customer.Limit);
-		UltimasTransacoes = transactions;
-    }
-
-    public BalanceDto Saldo { get; }
-	public Transaction[] UltimasTransacoes { get; }
-}
