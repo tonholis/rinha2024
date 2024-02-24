@@ -1,6 +1,6 @@
 @host = http://localhost:9999
 
-### Credit
+### Adicionar dindin
 POST {{host}}/clientes/1/transacoes
 Content-Type: application/json
 
@@ -10,7 +10,7 @@ Content-Type: application/json
   "descricao": "credito"
 }
 
-### Debito
+### Gastar dindin
 POST {{host}}/clientes/1/transacoes
 Content-Type: application/json
 
@@ -20,8 +20,8 @@ Content-Type: application/json
   "descricao": "debito"
 }
 
-###
+### Extrato
 GET {{host}}/clientes/1/extrato
 
-###
+### Limpar
 POST {{host}}/clear

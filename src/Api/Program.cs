@@ -52,7 +52,11 @@ app.MapGet("/clientes/{id}/extrato", async (int id,	ApiDb db) =>
 	if (customer is null)
 		return Results.NotFound(new ErrorDto("Cliente nao encontrado"));
 
-	var transactions = await db.Transactions.Where(t => t.CustomerId == id).ToArrayAsync();
+	var transactions = await db.Transactions
+		.AsNoTracking()
+		.Where(t => t.CustomerId == id)
+		.ToArrayAsync();
+	
 	return Results.Ok(new
 	{
 		saldo = new { total = customer.Balance, limite = customer.Limit, data_extrato = DateTime.UtcNow },
@@ -62,7 +66,9 @@ app.MapGet("/clientes/{id}/extrato", async (int id,	ApiDb db) =>
 
 app.MapPost("/clear", async (ApiDb db) =>
 {
-	await db.Database.ExecuteSqlRawAsync("UPDATE customers SET balance = 0;TRUNCATE TABLE transactions;");
+	await db.Database.ExecuteSqlRawAsync("UPDATE customers SET balance = 0;");
+	await db.Database.ExecuteSqlRawAsync("TRUNCATE TABLE transactions;");
+	
 	return Results.Ok(new { message = "done"});
 });
 
