@@ -13,6 +13,5 @@ WORKDIR /app
 COPY --from=build /app/out ./
 
 EXPOSE 5000
-ENV ASPNETCORE_URLS=http://+:5000
 
 ENTRYPOINT ["dotnet", "Api.dll"]

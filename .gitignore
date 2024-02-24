@@ -33,3 +33,5 @@ bld/
 *.pfx
 *.publishsettings
 node_modules/
+
+tests

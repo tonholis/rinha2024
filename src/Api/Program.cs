@@ -5,9 +5,17 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var env = builder.Environment;
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddDbContext<ApiDb>(options =>
-  options.UseNpgsql(builder.Configuration.GetConnectionString("DB")));
+builder.Services.AddDbContext<ApiDb>(options => {
+	options.UseNpgsql(builder.Configuration.GetConnectionString("DB"));
+		
+	options.EnableServiceProviderCaching();
+
+	if (env.IsDevelopment())
+		options.EnableDetailedErrors();
+});
 
 builder.Services.AddScoped<IValidator<Transaction>, TransactionValidator>();
 
@@ -18,25 +26,28 @@ app.MapPost("/clientes/{id}/transacoes", async (int id,
 	IValidator<Transaction> validator,
 	ApiDb db) =>
 {
+	var validationResult = await validator.ValidateAsync(transaction);
+	if (!validationResult.IsValid)
+		return Results.UnprocessableEntity(validationResult.Errors);
+
 	var customer = await db.Customers.FindAsync(id);
 	if (customer is null)
 		return Results.NotFound(new ErrorDto("Cliente nao encontrado"));
-
-	var validationResult = await validator.ValidateAsync(transaction);
-	if (!validationResult.IsValid)
-		return Results.BadRequest(validationResult.Errors);
-
+		
 	try
 	{
+		using var dbt = await db.Database.BeginTransactionAsync();
+
 		if (transaction.IsDebit())
 			customer.Debit(transaction.Amount);
 		else
 			customer.Credit(transaction.Amount);
 
 		transaction.CustomerId = id;
-		transaction.CreatedAt = DateTime.UtcNow;
 		db.Transactions.Add(transaction);
+
 		await db.SaveChangesAsync();
+		await dbt.CommitAsync();
 
 		return Results.Ok(new { limite = customer.Limit, saldo = customer.Balance });
 	}

@@ -5,9 +5,9 @@ POST {{host}}/clientes/1/transacoes
 Content-Type: application/json
 
 {
-  "valor": 10000,
+  "valor": 1,
   "tipo": "c",
-  "descricao": "credito"
+  "descricao": "danada"
 }
 
 ### Gastar dindin
@@ -25,3 +25,4 @@ GET {{host}}/clientes/1/extrato
 
 ### Limpar
 POST {{host}}/clear
+
