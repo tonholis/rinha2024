@@ -1,4 +1,5 @@
 using Api;
+using Api.Models;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ builder.Services.AddDbContext<ApiDb>(options => {
 		options.EnableDetailedErrors();
 });
 
+builder.Services.AddScoped<AccountService>();
 builder.Services.AddScoped<IValidator<Transaction>, TransactionValidator>();
 
 var app = builder.Build();
@@ -24,42 +26,30 @@ var app = builder.Build();
 app.MapPost("/clientes/{id}/transacoes", async (int id, 
 	[FromBody] Transaction transaction,
 	IValidator<Transaction> validator,
-	ApiDb db) =>
+	AccountService accountService) =>
 {
 	var validationResult = await validator.ValidateAsync(transaction);
 	if (!validationResult.IsValid)
 		return Results.UnprocessableEntity(validationResult.Errors);
 
-	var customer = await db.Customers.FindAsync(id);
+	var customer = await accountService.GetCustomer(id);
 	if (customer is null)
 		return Results.NotFound(new ErrorDto("Cliente nao encontrado"));
-		
+
 	try
 	{
-		using var dbt = await db.Database.BeginTransactionAsync();
-
-		if (transaction.IsDebit())
-			customer.Debit(transaction.Amount);
-		else
-			customer.Credit(transaction.Amount);
-
-		transaction.CustomerId = id;
-		db.Transactions.Add(transaction);
-
-		await db.SaveChangesAsync();
-		await dbt.CommitAsync();
-
-		return Results.Ok(new { limite = customer.Limit, saldo = customer.Balance });
+		var account = await accountService.SaveOperation(transaction, customer);
+		return Results.Ok(new { limite = account.Limit, saldo = account.Balance });
 	}
-	catch (InvalidOperationException)
+	catch (InsufficientBalanceException)
 	{
 		return Results.UnprocessableEntity(new ErrorDto("Saldo insuficiente"));
 	}
 });
 
-app.MapGet("/clientes/{id}/extrato", async (int id,	ApiDb db) =>
+app.MapGet("/clientes/{id}/extrato", async (int id,	ApiDb db, AccountService accountService) =>
 {
-	var customer = await db.Customers.FindAsync(id);
+	var customer = await accountService.GetCustomer(id);
 	if (customer is null)
 		return Results.NotFound(new ErrorDto("Cliente nao encontrado"));
 
@@ -70,7 +60,11 @@ app.MapGet("/clientes/{id}/extrato", async (int id,	ApiDb db) =>
 	
 	return Results.Ok(new
 	{
-		saldo = new { total = customer.Balance, limite = customer.Limit, data_extrato = DateTime.UtcNow },
+		saldo = new { 
+			total = customer.Balance, 
+			limite = customer.Limit, 
+			data_extrato = DateTime.UtcNow 
+		},
 		ultimas_transacoes = transactions
 	});	
 });

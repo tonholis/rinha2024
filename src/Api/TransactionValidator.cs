@@ -1,8 +1,9 @@
-﻿using FluentValidation;
+﻿using Api.Models;
+using FluentValidation;
 
 namespace Api
 {
-	public class TransactionValidator : AbstractValidator<Transaction>
+    public class TransactionValidator : AbstractValidator<Transaction>
 	{
         public TransactionValidator()
         {

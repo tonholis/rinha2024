@@ -5,9 +5,9 @@ version: "3.5"
 # de memória.
 #
 # nginx | 0.3   | 100MB
-# db    | 0.4   | 220MB
-# app01 | 0.4   | 115MB
-# app02 | 0.4   | 115MB
+# db    | 0.4   | 250MB
+# app01 | 0.4   | 100MB
+# app02 | 0.4   | 100MB
 
 services:
   api01: &api
@@ -48,7 +48,7 @@ services:
       resources:
         limits:
           cpus: "0.4"
-          memory: "220MB"
+          memory: "250MB"
 
   nginx:
     image: nginx:latest
@@ -66,11 +66,11 @@ services:
           cpus: "0.3"
           memory: "100MB"
 
-  adminer:
-    image: adminer
-    restart: always
-    ports:
-      - 8080:8080
+  # adminer:
+  #   image: adminer
+  #   restart: always
+  #   ports:
+  #     - 8080:8080
 # O uso do modo `bridge` deve ser adequado à carga que será usada no teste.
 # A edição anterior se beneficiou do modo host pois o volume de requisições
 # era relativamente alto e a virtualização da rede se tornou um gargalo, mas
