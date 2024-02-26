@@ -1,11 +1,12 @@
 @host = http://localhost:9999
+# @host = http://localhost:5263
 
 ### Adicionar dindin
 POST {{host}}/clientes/1/transacoes
 Content-Type: application/json
 
 {
-  "valor": 1,
+  "valor": 10000,
   "tipo": "c",
   "descricao": "danada"
 }
@@ -23,6 +24,6 @@ Content-Type: application/json
 ### Extrato
 GET {{host}}/clientes/1/extrato
 
-### Limpar
-POST {{host}}/clear
+### Limpar e resetar tudo
+POST {{host}}/reset
 

@@ -1,4 +1,4 @@
-﻿using Api.Models;
+﻿using Api.Data.Models;
 using FluentValidation;
 
 namespace Api

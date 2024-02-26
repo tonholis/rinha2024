@@ -1,67 +1,31 @@
-﻿using Api.Models;
+﻿using Api.Data;
+using Api.Data.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 
 namespace Api
 {
-
-    public class AccountService
+	public class AccountService
 	{
-		private readonly ApiDb _db;
+		private readonly ApiDbContext _db;
 
-		public AccountService(ApiDb db)
+		public AccountService(ApiDbContext db)
 		{
 			_db = db;
 		}
 
-		public async Task<Customer> SaveOperation(Transaction transaction, Customer customer)
-		{
-			if (transaction.IsDebit())
-			{
-				if (customer.Balance - transaction.Amount < customer.Limit * -1)
-					throw new InsufficientBalanceException();
+		public async Task<Customer> SaveOperationAsync(Transaction t, int customerId)
+		{	
+			var result = (await _db.Database
+				.SqlQuery<AddTransactionResult>($"SELECT * FROM add_transaction({customerId}, {t.Amount}, {t.Type}, {t.Description})")
+				.ToListAsync())[0];				
 
-				customer.Balance -= transaction.Amount;
-			}
-			else
-				customer.Balance += transaction.Amount;
+			if (result.Error == 1)
+				throw new CustomerNotFoundException();
 
-			transaction.CustomerId = customer.Id;
-			_db.Transactions.Add(transaction);
+			if (result.Error == 2)
+				throw new InsufficientBalanceException();
 
-			await SaveChanges();
-
-			return customer;
-		}
-
-		private async Task SaveChanges()
-		{
-			var saved = false;
-			while (!saved)
-			{
-				try
-				{	
-					await _db.SaveChangesAsync();
-					saved = true;
-				}
-				catch (DbUpdateConcurrencyException ex)
-				{
-					foreach (var entry in ex.Entries)
-					{
-						if (entry.Entity is Customer)
-						{
-							var databaseValues = await entry.GetDatabaseValuesAsync();
-							entry.OriginalValues.SetValues(databaseValues);
-						}
-						else
-						{
-							throw new NotSupportedException(
-								"Don't know how to handle concurrency conflicts for "
-								+ entry.Metadata.Name);
-						}
-					}
-				}
-			}
+			return result;		
 		}
 
 		public async Task<Customer?> GetCustomer(int customerId)
@@ -74,4 +38,13 @@ namespace Api
 	}
 
 	public class CustomerNotFoundException : Exception { }
+
+	public class InsufficientBalanceException : Exception { }
+
+	public class AddTransactionResult : Customer
+	{
+		public int Error { get; set; }
+	}
+
+
 }

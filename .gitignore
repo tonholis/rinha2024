@@ -34,4 +34,5 @@ bld/
 *.publishsettings
 node_modules/
 
-tests
+tests/gatling/*
+!tests/gatling/readme.md
